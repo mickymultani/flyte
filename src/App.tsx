@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
-import { getProfile, createAdminProfile, createUserProfile, signOut, checkDomainWhitelist } from './lib/auth'
+import { signOut, checkDomainWhitelist } from './lib/auth'
 import { SuperAdminRegister } from './components/Auth/SuperAdminRegister'
 import { SuperAdminLogin } from './components/Auth/SuperAdminLogin'
 import { UserLogin } from './components/Auth/UserLogin'
@@ -12,95 +12,39 @@ import { CompleteProfileModal } from './components/Auth/CompleteProfileModal'
 import { ProfileDebug } from './components/Debug/ProfileDebug'
 
 function AppContent() {
-  const { user, profile, profileType, loading, initializing, setUserProfile, isSuperAdmin, isUser } = useAuth()
+  const { user, profile, loading, initializing, setUserProfile, isSuperAdmin, isUser } = useAuth()
   const [profileError, setProfileError] = useState<string | null>(null)
-  const [loadingProfile, setLoadingProfile] = useState(false)
   const [showCompleteProfile, setShowCompleteProfile] = useState(false)
   const [enterpriseInfo, setEnterpriseInfo] = useState<{ id: string; name: string } | null>(null)
   const [showDebug, setShowDebug] = useState(false)
-  const navigate = useNavigate()
 
-  // SIMPLE: Load profile when user is available
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!user || profile || loadingProfile) return
+    const checkForIncompleteProfile = async () => {
+      if (!user || profile || loading) return
 
-      console.log('🔄 Loading profile for user:', user.id)
-      setLoadingProfile(true)
-      setProfileError(null)
-
-      try {
-        // Try to get existing profile
-        const result = await getProfile(user.id)
+      if (user.email) {
+        const { data: domainData } = await checkDomainWhitelist(user.email)
         
-        if (result.data && result.type) {
-          console.log('✅ Profile loaded:', result.data.full_name, result.type)
-          setUserProfile(result.data, result.type)
-          return
-        }
-
-        // No profile found - try to create one
-        console.log('📝 No profile found, creating one...')
-        const metadata = user.user_metadata
-
-        if (metadata?.role === 'super_admin') {
-          // Create admin profile
-          const { data: adminProfile, error } = await createAdminProfile(
-            user.id,
-            user.email || '',
-            metadata.full_name || 'Admin'
-          )
-          
-          if (adminProfile && !error) {
-            setUserProfile(adminProfile, 'admin')
-          } else {
-            setProfileError('Failed to create admin profile: ' + (error?.message || 'Unknown error'))
-          }
-        } else if (metadata?.enterprise_id && metadata?.full_name) {
-          // Create user profile from metadata
-          const { data: userProfile, error } = await createUserProfile(
-            user.id,
-            user.email || '',
-            metadata.full_name,
-            metadata.enterprise_id,
-            {
-              role: metadata.role || 'staff',
-              phone: metadata.phone
-            }
-          )
-          
-          if (userProfile && !error) {
-            setUserProfile(userProfile, 'user')
-          } else {
-            setProfileError('Failed to create user profile: ' + (error?.message || 'Unknown error'))
-          }
-        } else if (user.email) {
-          // Try domain lookup
-          const { data: domainData } = await checkDomainWhitelist(user.email)
-          
-          if (domainData) {
-            setEnterpriseInfo({
-              id: domainData.enterprise_id,
-              name: domainData.enterprise_name
-            })
-            setShowCompleteProfile(true)
-          } else {
-            setProfileError('Your email domain is not whitelisted. Contact your administrator.')
-          }
+        if (domainData) {
+          setEnterpriseInfo({
+            id: domainData.enterprise_id,
+            name: domainData.enterprise_name
+          })
+          setShowCompleteProfile(true)
         } else {
-          setProfileError('Unable to create profile - missing information')
+          setProfileError('Your email domain is not whitelisted. Contact your administrator.')
         }
-
-      } catch (error: any) {
-        console.error('💥 Error loading profile:', error)
-        setProfileError(error.message || 'Failed to load profile')
-      } finally {
-        setLoadingProfile(false)
       }
     }
 
-    loadProfile()
-  }, [user, profile, loadingProfile, setUserProfile])
+    checkForIncompleteProfile()
+  }, [user, profile, loading])
+
+  const handleProfileCompleted = (newProfile: any) => {
+    setUserProfile(newProfile, 'user')
+    setShowCompleteProfile(false)
+    setEnterpriseInfo(null)
+  }
 
   const handleLogout = async () => {
     try {
@@ -110,19 +54,13 @@ function AppContent() {
     }
   }
 
-  const handleProfileCompleted = (newProfile: any) => {
-    setUserProfile(newProfile, 'user')
-    setShowCompleteProfile(false)
-    setEnterpriseInfo(null)
-  }
-
   // Show debug tool if requested
   if (showDebug) {
     return <ProfileDebug />
   }
 
   // Show loading
-  if (initializing || loadingProfile) {
+  if (initializing || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center">
         <div className="text-center">

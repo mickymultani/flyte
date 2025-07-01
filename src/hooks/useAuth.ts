@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase, AdminProfile, UserProfile } from '../lib/supabase'
+import { getProfile } from '../lib/auth'
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null)
@@ -52,8 +53,25 @@ export const useAuth = () => {
         }
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setUser(session?.user ?? null)
-          setLoading(false)
+          const user = session?.user
+          setUser(user ?? null)
+          
+          if (user) {
+            setLoading(true)
+            try {
+              const result = await getProfile(user.id)
+              if (result.data && result.type) {
+                setProfile(result.data)
+                setProfileType(result.type as 'admin' | 'user')
+              }
+            } catch (error) {
+              console.error('Error loading profile:', error)
+            } finally {
+              setLoading(false)
+            }
+          } else {
+            setLoading(false)
+          }
           return
         }
 

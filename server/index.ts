@@ -3,14 +3,17 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
 import { createClient } from '@supabase/supabase-js'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 const app = express()
 const server = createServer(app)
 
 // Initialize Supabase client for server-side operations
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || 'http://localhost:54321',
-  process.env.VITE_SUPABASE_ANON_KEY || ''
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'http://localhost:54321',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
 )
 
 // Configure Socket.IO with CORS

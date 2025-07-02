@@ -92,33 +92,26 @@ export const getProfile = async (userId: string) => {
   console.log('🔍 Fetching profile for user:', userId)
   
   try {
-    // Try user_profiles first
+    console.log('📡 Starting user_profiles query...')
+    // Try user_profiles first (simplified query)
     const { data: userData, error: userError } = await supabase
       .from('user_profiles')
-      .select(`
-        *,
-        enterprises (
-          id,
-          name,
-          contact_email,
-          status
-        ),
-        departments (
-          id,
-          name,
-          code,
-          description,
-          color
-        )
-      `)
+      .select('*')
       .eq('id', userId)
       .single()
+    
+    console.log('📊 User query result:', { userData: !!userData, userError })
     
     if (userData && !userError) {
       console.log('✅ Found user profile:', userData.full_name)
       return { data: userData, type: 'user' }
     }
     
+    if (userError) {
+      console.log('⚠️ User profile error:', userError.message, userError.code)
+    }
+    
+    console.log('📡 Starting admin_profiles query...')
     // Try admin_profiles
     const { data: adminData, error: adminError } = await supabase
       .from('admin_profiles')
@@ -126,16 +119,22 @@ export const getProfile = async (userId: string) => {
       .eq('id', userId)
       .single()
     
+    console.log('📊 Admin query result:', { adminData: !!adminData, adminError })
+    
     if (adminData && !adminError) {
       console.log('✅ Found admin profile:', adminData.full_name)
       return { data: adminData, type: 'admin' }
     }
     
-    console.log('❌ No profile found')
+    if (adminError) {
+      console.log('⚠️ Admin profile error:', adminError.message, adminError.code)
+    }
+    
+    console.log('❌ No profile found in either table')
     return { data: null, type: null }
     
   } catch (error) {
-    console.error('💥 Error fetching profile:', error)
+    console.error('💥 Exception fetching profile:', error)
     return { data: null, type: null }
   }
 }

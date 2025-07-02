@@ -42,47 +42,47 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
     )
   }
 
-  // If no profile, show error
-  if (!profile || !profileType) {
+  // If no profile, show helpful message instead of error
+  if (!profile && user) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <div className="bg-red-100 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">⚠️</span>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Profile Not Found</h3>
-            <p className="text-gray-600 mb-4">Unable to load your profile information.</p>
-            
-            <div className="bg-gray-100 p-3 rounded-lg mb-4 text-left">
-              <p className="text-xs text-gray-600">
-                <strong>Debug Info:</strong><br/>
-                <strong>Has Profile:</strong> {profile ? 'Yes' : 'No'}<br/>
-                <strong>Profile Type:</strong> {profileType || 'None'}<br/>
-                <strong>User ID:</strong> {user?.id || 'None'}
-              </p>
-            </div>
-            
-            <div className="flex space-x-2">
-              <Button 
-                variant="secondary" 
-                onClick={() => window.location.reload()}
-                size="sm"
-              >
-                Reload Page
+          <CardContent className="p-6 text-center">
+            <h3 className="text-lg font-semibold mb-3">Profile Setup Required</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Your account exists but needs a profile to be created. Please contact your administrator.
+            </p>
+            <div className="space-y-3">
+              <Button onClick={handleLogout} variant="secondary" className="w-full">
+                Sign Out
               </Button>
-              <Button 
-                variant="ghost" 
-                onClick={onClose}
+              <Button
+                onClick={() => setShowDebug(!showDebug)}
+                variant="ghost"
                 size="sm"
+                className="w-full text-xs"
               >
-                Close
+                {showDebug ? 'Hide' : 'Show'} Debug Info
               </Button>
             </div>
+
+            {showDebug && (
+              <div className="mt-4 p-3 bg-gray-50 rounded text-left text-xs">
+                <div><strong>User ID:</strong> {user?.id || 'None'}</div>
+                <div><strong>Email:</strong> {user?.email || 'None'}</div>
+                <div><strong>Has Profile:</strong> {profile ? 'Yes' : 'No'}</div>
+                <div><strong>Profile Type:</strong> {profileType || 'None'}</div>
+                <div><strong>User Metadata:</strong> {JSON.stringify(user?.user_metadata || {}, null, 2)}</div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     )
+  }
+
+  if (!profile) {
+    return null
   }
 
   const userProfile = profile as any
@@ -94,9 +94,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Profile</h2>
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowDebug(!showDebug)}
                 title="Debug"
               >
@@ -108,7 +108,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {/* Profile Avatar */}
           <div className="text-center">
@@ -122,8 +122,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
             </h3>
             <p className="text-sm text-gray-500">{profile.email}</p>
             <span className={`inline-block px-2 py-1 text-xs rounded-full mt-2 ${
-              profileType === 'admin' 
-                ? 'bg-red-100 text-red-800' 
+              profileType === 'admin'
+                ? 'bg-red-100 text-red-800'
                 : 'bg-blue-100 text-blue-800'
             }`}>
               {profileType === 'admin' ? 'Super Administrator' : 'User'}
@@ -205,7 +205,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">Department</p>
                       <div className="flex items-center space-x-2">
-                        <div 
+                        <div
                           className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: userProfile.departments.color }}
                         />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { User, Building2, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react'
+import { User, Building2, AlertCircle } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Card, CardContent, CardHeader } from '../ui/Card'

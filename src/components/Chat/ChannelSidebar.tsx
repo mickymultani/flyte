@@ -21,7 +21,6 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   onSearchChange
 }) => {
   const { profile } = useAuth()
-  const [showCreateChannel, setShowCreateChannel] = useState(false)
   const [expandedSections, setExpandedSections] = useState({
     channels: true,
     directMessages: true
@@ -34,6 +33,12 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
 
   const publicChannels = filteredChannels.filter(c => c.type === 'public')
   const privateChannels = filteredChannels.filter(c => c.type === 'private')
+
+  const getDirectMessageDisplayName = (channel: Channel, currentUserId?: string) => {
+    if (!channel.name.startsWith('dm-') || !currentUserId) return channel.name
+    
+    return channel.description?.split(' between ')[1]?.split(' and ')[1] || 'Direct Message'
+  }
 
   const toggleSection = (section: 'channels' | 'directMessages') => {
     setExpandedSections(prev => ({
@@ -89,7 +94,6 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
               className="p-0 h-5 w-5"
               onClick={(e) => {
                 e.stopPropagation()
-                setShowCreateChannel(true)
               }}
             >
               <Plus className="h-3 w-3" />
@@ -146,25 +150,36 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
 
             {expandedSections.directMessages && (
               <div className="mt-1 space-y-0.5">
-                {privateChannels.map((channel) => (
-                  <button
-                    key={channel.id}
-                    onClick={() => onChannelSelect(channel.id)}
-                    className={`w-full flex items-center space-x-2 px-2 py-1.5 text-sm rounded hover:bg-gray-100 transition-colors ${
-                      selectedChannelId === channel.id
-                        ? 'bg-primary-100 text-primary-900 font-medium'
-                        : 'text-gray-700'
-                    }`}
-                  >
-                    <Lock className="h-4 w-4 text-gray-400" />
-                    <span className="truncate">{channel.name}</span>
-                    {channel.unread_count && channel.unread_count > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
-                        {channel.unread_count > 99 ? '99+' : channel.unread_count}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {privateChannels.map((channel) => {
+                  const isDM = channel.name.startsWith('dm-')
+                  const displayName = isDM 
+                    ? getDirectMessageDisplayName(channel, profile?.id)
+                    : channel.name
+                  
+                  return (
+                    <button
+                      key={channel.id}
+                      onClick={() => onChannelSelect(channel.id)}
+                      className={`w-full flex items-center space-x-2 px-2 py-1.5 text-sm rounded hover:bg-gray-100 transition-colors ${
+                        selectedChannelId === channel.id
+                          ? 'bg-primary-100 text-primary-900 font-medium'
+                          : 'text-gray-700'
+                      }`}
+                    >
+                      {isDM ? (
+                        <div className="w-4 h-4 bg-green-500 rounded-full" />
+                      ) : (
+                        <Lock className="h-4 w-4 text-gray-400" />
+                      )}
+                      <span className="truncate">{displayName}</span>
+                      {channel.unread_count && channel.unread_count > 0 && (
+                        <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                          {channel.unread_count > 99 ? '99+' : channel.unread_count}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

@@ -1,5 +1,7 @@
 Flyte is a real-time enterprise messaging platform for airport operations, inspired by WhatsApp in simplicity and speed, but purpose-built for secure and structured communication between airport teams.
 
+<!-- Verification comment: Repository access and lint functionality confirmed -->
+
 The system will use:
 
 ✅ Socket.IO as the real-time messaging layer

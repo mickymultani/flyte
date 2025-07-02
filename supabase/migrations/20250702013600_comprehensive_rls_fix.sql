@@ -187,6 +187,48 @@ CREATE POLICY "messages_super_admin_access"
     )
   );
 
+DROP POLICY IF EXISTS "enterprise_users_view_contacts" ON contacts;
+DROP POLICY IF EXISTS "super_admins_manage_contacts" ON contacts;
+
+CREATE POLICY "contacts_enterprise_view"
+  ON contacts FOR SELECT TO authenticated
+  USING (
+    enterprise_id IN (
+      SELECT enterprise_id FROM user_profiles WHERE id = auth.uid()
+      UNION
+      SELECT enterprise_id FROM admin_profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "contacts_enterprise_create"
+  ON contacts FOR INSERT TO authenticated
+  WITH CHECK (
+    enterprise_id IN (
+      SELECT enterprise_id FROM user_profiles WHERE id = auth.uid()
+      UNION
+      SELECT enterprise_id FROM admin_profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "contacts_enterprise_update"
+  ON contacts FOR UPDATE TO authenticated
+  USING (
+    enterprise_id IN (
+      SELECT enterprise_id FROM user_profiles WHERE id = auth.uid()
+      UNION
+      SELECT enterprise_id FROM admin_profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "contacts_super_admin_access"
+  ON contacts FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_profiles 
+      WHERE id = auth.uid() AND role = 'super_admin'
+    )
+  );
+
 -- Log completion
 DO $$
 BEGIN
@@ -194,5 +236,6 @@ BEGIN
   RAISE NOTICE '  - All recursive policies removed';
   RAISE NOTICE '  - Enterprise-based access control implemented';
   RAISE NOTICE '  - No more infinite recursion in channel_members';
-  RAISE NOTICE '🔍 Test channel creation and visibility now';
+  RAISE NOTICE '  - Contacts table RLS policies fixed';
+  RAISE NOTICE '🔍 Test channel creation and contact addition now';
 END $$;

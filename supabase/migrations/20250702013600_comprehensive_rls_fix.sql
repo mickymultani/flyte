@@ -72,13 +72,13 @@ CREATE POLICY "channels_creator_update"
     created_by = auth.uid()
     OR EXISTS (
       SELECT 1 FROM user_profiles up
-      WHERE up.id = auth.uid() 
+      WHERE up.id = auth.uid()
       AND up.enterprise_id = channels.enterprise_id
       AND up.role IN ('admin', 'supervisor')
     )
     OR EXISTS (
       SELECT 1 FROM admin_profiles ap
-      WHERE ap.id = auth.uid() 
+      WHERE ap.id = auth.uid()
       AND ap.enterprise_id = channels.enterprise_id
     )
   );
@@ -87,7 +87,7 @@ CREATE POLICY "channels_super_admin_access"
   ON channels FOR ALL TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM admin_profiles 
+      SELECT 1 FROM admin_profiles
       WHERE id = auth.uid() AND role = 'super_admin'
     )
   );
@@ -136,7 +136,7 @@ CREATE POLICY "channel_members_super_admin_access"
   ON channel_members FOR ALL TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM admin_profiles 
+      SELECT 1 FROM admin_profiles
       WHERE id = auth.uid() AND role = 'super_admin'
     )
   );
@@ -182,7 +182,7 @@ CREATE POLICY "messages_super_admin_access"
   ON messages FOR ALL TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM admin_profiles 
+      SELECT 1 FROM admin_profiles
       WHERE id = auth.uid() AND role = 'super_admin'
     )
   );
@@ -224,7 +224,7 @@ CREATE POLICY "contacts_super_admin_access"
   ON contacts FOR ALL TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM admin_profiles 
+      SELECT 1 FROM admin_profiles
       WHERE id = auth.uid() AND role = 'super_admin'
     )
   );

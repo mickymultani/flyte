@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react'
-import { UserCheck, Phone, Radio, MapPin, Clock, Shield, Wrench, Users, Headphones, Plus } from 'lucide-react'
+import { UserCheck, Shield, Wrench, Users, Headphones, Plus, Search } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
 import { useAuth } from '../../hooks/useAuth'
-import { supabase, Contact } from '../../lib/supabase'
-import { AddContactModal } from './AddContactModal'
+import { supabase } from '../../lib/supabase'
+
+interface UserProfile {
+  id: string
+  full_name: string
+  email: string
+  role: string
+  phone?: string
+  department_id?: string
+  status: string
+  enterprise_id: string
+}
 
 interface ContactsSidebarProps {
   searchTerm: string
@@ -17,57 +28,76 @@ export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({
   onChannelCreated 
 }) => {
   const { profile } = useAuth()
-  const [contacts, setContacts] = useState<Contact[]>([])
+  const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([])
+  const [myContacts, setMyContacts] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAddContact, setShowAddContact] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (profile) {
-      fetchContacts()
+      fetchAvailableUsers()
+      fetchMyContacts()
     } else {
       setLoading(false)
     }
   }, [profile])
 
-  const fetchContacts = async () => {
-    if (!profile) {
-      setLoading(false)
-      return
+  const fetchAvailableUsers = async () => {
+    if (!profile) return
+
+    try {
+      console.log('🔍 Fetching available users for enterprise:', (profile as any).enterprise_id)
+      console.log('🔍 Current user profile:', profile)
+      
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, full_name, email, role, phone, department_id, status, enterprise_id')
+        .eq('enterprise_id', (profile as any).enterprise_id)
+        .eq('status', 'active')
+        .neq('id', profile.id) // Exclude current user
+        .order('full_name', { ascending: true })
+
+      console.log('🔍 Query result:', { data, error })
+      
+      if (error) throw error
+      setAvailableUsers(data || [])
+      console.log('🔍 Available users set:', data || [])
+    } catch (error) {
+      console.error('Error fetching available users:', error)
+      setAvailableUsers([])
     }
+  }
+
+  const fetchMyContacts = async () => {
+    if (!profile) return
 
     try {
       const { data, error } = await supabase
         .from('contacts')
-        .select(`
-          *,
-          departments (
-            name,
-            color
-          )
-        `)
+        .select('user_id')
         .eq('enterprise_id', (profile as any).enterprise_id)
-        .eq('status', 'active')
-        .order('emergency_contact', { ascending: false })
-        .order('name', { ascending: true })
+        .not('user_id', 'is', null)
 
       if (error) throw error
-      setContacts(data || [])
+      setMyContacts(data?.map(c => c.user_id).filter(Boolean) || [])
     } catch (error) {
-      console.error('Error fetching contacts:', error)
-      setContacts([])
+      console.error('Error fetching my contacts:', error)
+      setMyContacts([])
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contact.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (contact as any).departments?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const searchTermToUse = searchQuery || searchTerm
+  
+  const filteredUsers = availableUsers.filter(user =>
+    user.full_name.toLowerCase().includes(searchTermToUse.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTermToUse.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchTermToUse.toLowerCase())
   )
 
-  const emergencyContacts = filteredContacts.filter(c => c.emergency_contact)
-  const regularContacts = filteredContacts.filter(c => !c.emergency_contact)
+  const myContactUsers = filteredUsers.filter(user => myContacts.includes(user.id))
+  const availableToAdd = filteredUsers.filter(user => !myContacts.includes(user.id))
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -78,19 +108,44 @@ export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({
     }
   }
 
-  const getDepartmentIcon = (departmentName: string) => {
-    const name = departmentName?.toLowerCase()
-    if (name?.includes('security')) return Shield
-    if (name?.includes('maintenance')) return Wrench
-    if (name?.includes('customer')) return Headphones
+  const getRoleIcon = (role: string) => {
+    const roleStr = role?.toLowerCase()
+    if (roleStr?.includes('security')) return Shield
+    if (roleStr?.includes('maintenance')) return Wrench
+    if (roleStr?.includes('customer')) return Headphones
+    if (roleStr?.includes('admin')) return Shield
     return Users
   }
 
-  const handleStartDirectMessage = async (contact: Contact) => {
+  const handleAddContact = async (user: UserProfile) => {
+    if (!profile) return
+
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .insert({
+          enterprise_id: (profile as any).enterprise_id,
+          user_id: user.id,
+          name: user.full_name,
+          email: user.email,
+          role: user.role,
+          phone: user.phone,
+          status: 'active'
+        })
+
+      if (error) throw error
+      
+      await fetchMyContacts()
+    } catch (error) {
+      console.error('Error adding contact:', error)
+    }
+  }
+
+  const handleStartDirectMessage = async (user: UserProfile) => {
     if (!profile || !onChannelSelect) return
     
     try {
-      const userIds = [profile.id, contact.user_id].sort()
+      const userIds = [profile.id, user.id].sort()
       const channelName = `dm-${userIds.join('-')}`
       
       const { data: existingChannel } = await supabase
@@ -111,7 +166,7 @@ export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({
         .insert({
           enterprise_id: (profile as any).enterprise_id,
           name: channelName,
-          description: `Direct conversation between ${profile.full_name} and ${contact.name}`,
+          description: `Direct conversation between ${profile.full_name} and ${user.full_name}`,
           type: 'private',
           created_by: profile.id
         })
@@ -124,7 +179,7 @@ export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({
         .from('channel_members')
         .insert([
           { channel_id: channel.id, user_id: profile.id, role: 'admin' },
-          { channel_id: channel.id, user_id: contact.user_id, role: 'member' }
+          { channel_id: channel.id, user_id: user.id, role: 'member' }
         ])
       
       if (memberError) throw memberError
@@ -145,37 +200,46 @@ export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({
         </div>
       ) : (
         <>
-          {/* Emergency Contacts */}
-          {emergencyContacts.length > 0 && (
+          {/* Search Bar */}
+          <div className="p-3 border-b border-gray-200">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          {/* My Contacts */}
+          {myContactUsers.length > 0 && (
             <div className="p-2 border-b border-gray-100">
-              <h3 className="text-sm font-medium text-red-700 px-2 py-2 mb-2 flex items-center space-x-2">
-                <Phone className="h-4 w-4" />
-                <span>Emergency Contacts</span>
+              <h3 className="text-sm font-medium text-gray-700 px-2 py-2 mb-2 flex items-center space-x-2">
+                <UserCheck className="h-4 w-4" />
+                <span>My Contacts ({myContactUsers.length})</span>
               </h3>
               <div className="space-y-1">
-                {emergencyContacts.map((contact) => {
-                  const DepartmentIcon = getDepartmentIcon((contact as any).departments?.name)
+                {myContactUsers.map((user) => {
+                  const RoleIcon = getRoleIcon(user.role)
                   return (
                     <div
-                      key={contact.id}
-                      className="p-3 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                      key={user.id}
+                      className="p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => handleStartDirectMessage(user)}
                     >
                       <div className="flex items-center space-x-3">
                         <div className="relative">
-                          <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0">
-                            <DepartmentIcon className="h-5 w-5 text-white" />
+                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                            <RoleIcon className="h-5 w-5 text-white" />
                           </div>
-                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(contact.status)} rounded-full border-2 border-white`} />
+                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(user.status)} rounded-full border-2 border-white`} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 text-sm truncate">{contact.name}</p>
-                          <p className="text-xs text-gray-600 truncate">{contact.role}</p>
-                          {contact.phone && (
-                            <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
-                              <Phone className="h-3 w-3" />
-                              <span>{contact.phone}</span>
-                            </div>
-                          )}
+                          <p className="font-medium text-gray-900 text-sm truncate">{user.full_name}</p>
+                          <p className="text-xs text-gray-600 truncate">{user.role}</p>
+                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
                         </div>
                       </div>
                     </div>
@@ -185,132 +249,87 @@ export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({
             </div>
           )}
 
-          {/* Regular Contacts */}
-          <div className="p-2">
-            <div className="flex items-center justify-between px-2 py-2 mb-2">
-              <h3 className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-                <UserCheck className="h-4 w-4" />
-                <span>Staff Directory ({regularContacts.length})</span>
+          {/* Available to Add */}
+          {availableToAdd.length > 0 && (
+            <div className="p-2">
+              <h3 className="text-sm font-medium text-gray-700 px-2 py-2 mb-2 flex items-center space-x-2">
+                <Plus className="h-4 w-4" />
+                <span>Add to Contacts ({availableToAdd.length})</span>
               </h3>
-              <Button
-                variant="ghost"
+              <div className="space-y-1">
+                {availableToAdd.map((user) => {
+                  const RoleIcon = getRoleIcon(user.role)
+                  return (
+                    <div
+                      key={user.id}
+                      className="p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                      onClick={() => handleStartDirectMessage(user)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <div className="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <RoleIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(user.status)} rounded-full border-2 border-white`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{user.full_name}</p>
+                          <p className="text-xs text-gray-600 truncate">{user.role}</p>
+                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAddContact(user)
+                          }}
+                          className="flex-shrink-0"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* No Results */}
+          {filteredUsers.length === 0 && searchTermToUse && (
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No users found</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Try searching with a different name or email
+              </p>
+              <Button 
+                variant="secondary" 
                 size="sm"
-                className="p-1 h-6 w-6"
-                onClick={() => setShowAddContact(true)}
-                title="Add Contact"
+                onClick={() => setSearchQuery('')}
               >
-                <Plus className="h-3 w-3" />
+                Clear Search
               </Button>
             </div>
+          )}
 
-            <div className="space-y-1">
-              {regularContacts.map((contact) => {
-                const DepartmentIcon = getDepartmentIcon((contact as any).departments?.name)
-                return (
-                  <div
-                    key={contact.id}
-                    className="p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => handleStartDirectMessage(contact)}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ 
-                            backgroundColor: (contact as any).departments?.color || '#6B7280' 
-                          }}
-                        >
-                          <DepartmentIcon className="h-5 w-5 text-white" />
-                        </div>
-                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(contact.status)} rounded-full border-2 border-white`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-sm truncate">{contact.name}</p>
-                        <p className="text-xs text-gray-600 truncate">{contact.role}</p>
-                        {(contact as any).departments && (
-                          <p className="text-xs text-gray-500 truncate">
-                            {(contact as any).departments.name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Contact Details */}
-                    <div className="mt-2 space-y-1">
-                      {contact.phone && (
-                        <div className="flex items-center space-x-2 text-xs text-gray-500">
-                          <Phone className="h-3 w-3" />
-                          <span>{contact.phone}</span>
-                        </div>
-                      )}
-                      {contact.radio_channel && (
-                        <div className="flex items-center space-x-2 text-xs text-gray-500">
-                          <Radio className="h-3 w-3" />
-                          <span>Channel {contact.radio_channel}</span>
-                        </div>
-                      )}
-                      {contact.location && (
-                        <div className="flex items-center space-x-2 text-xs text-gray-500">
-                          <MapPin className="h-3 w-3" />
-                          <span>{contact.location}</span>
-                        </div>
-                      )}
-                      {contact.shift_pattern && (
-                        <div className="flex items-center space-x-2 text-xs text-gray-500">
-                          <Clock className="h-3 w-3" />
-                          <span>{contact.shift_pattern}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {filteredContacts.length === 0 && (
-              <div className="p-6 text-center">
-                {searchTerm ? (
-                  <div>
-                    <p className="text-sm text-gray-500 mb-3">No contacts found</p>
-                    <Button 
-                      variant="secondary" 
-                      size="sm"
-                      onClick={() => {/* Clear search handled by parent */}}
-                    >
-                      Clear Search
-                    </Button>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <UserCheck className="h-8 w-8 text-blue-600" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Add Contacts</h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Build your team directory by adding staff contacts
-                    </p>
-                    <Button 
-                      size="sm"
-                      onClick={() => setShowAddContact(true)}
-                      className="inline-flex items-center"
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Contact
-                    </Button>
-                  </div>
-                )}
+          {/* Empty State */}
+          {filteredUsers.length === 0 && !searchTermToUse && (
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserCheck className="h-8 w-8 text-blue-600" />
               </div>
-            )}
-          </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Find Colleagues</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Search for colleagues by name or email to add them to your contacts
+              </p>
+            </div>
+          )}
         </>
-      )}
-
-      {/* Add Contact Modal */}
-      {showAddContact && (
-        <AddContactModal
-          onClose={() => setShowAddContact(false)}
-          onContactAdded={fetchContacts}
-        />
       )}
     </div>
   )

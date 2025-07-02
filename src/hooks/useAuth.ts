@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase, AdminProfile, UserProfile } from '../lib/supabase'
+import { getProfile } from '../lib/auth'
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null)
@@ -34,22 +35,28 @@ export const useAuth = () => {
           setUser(user ?? null)
           
           if (user) {
-            console.log('Setting mock profile during initialization...')
-            const mockProfile: UserProfile = {
-              id: user.id,
-              enterprise_id: '2558d36d-23df-456d-98d6-950794a3cc22',
-              full_name: 'Cole Nelson',
-              email: user.email || 'sales@realo.io',
-              status: 'active' as const,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              department_id: undefined,
-              role: 'staff' as const,
-              phone: '+1 (825) 437-8070'
+            console.log('Initial session found, fetching profile from database...')
+            setLoading(true)
+            
+            try {
+              const { data: profileData, type: profileType } = await getProfile(user.id)
+              
+              if (profileData && profileType) {
+                console.log('✅ Profile loaded from database:', profileData.full_name)
+                setProfile(profileData)
+                setProfileType(profileType as 'admin' | 'user')
+              } else {
+                console.log('❌ No profile found for user:', user.id)
+                setProfile(null)
+                setProfileType(null)
+              }
+            } catch (error) {
+              console.error('💥 Error fetching profile:', error)
+              setProfile(null)
+              setProfileType(null)
+            } finally {
+              setLoading(false)
             }
-            setProfile(mockProfile)
-            setProfileType('user')
-            console.log('✅ Mock profile set during initialization')
           }
           
           setInitializing(false)
@@ -88,24 +95,28 @@ export const useAuth = () => {
           setInitializing(false)
           
           if (user) {
-            console.log('User authenticated, creating mock profile for enterprise chat demo...')
-            const mockProfile: UserProfile = {
-              id: user.id,
-              enterprise_id: '2558d36d-23df-456d-98d6-950794a3cc22',
-              full_name: 'Cole Nelson',
-              email: user.email || 'sales@realo.io',
-              status: 'active' as const,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              department_id: undefined,
-              role: 'staff' as const,
-              phone: '+1 (825) 437-8070'
-            }
+            console.log('User authenticated, fetching profile from database...')
+            setLoading(true)
             
-            console.log('✅ Mock profile created for enterprise chat:', mockProfile.full_name)
-            setProfile(mockProfile)
-            setProfileType('user')
-            setLoading(false)
+            try {
+              const { data: profileData, type: profileType } = await getProfile(user.id)
+              
+              if (profileData && profileType) {
+                console.log('✅ Profile loaded from database:', profileData.full_name)
+                setProfile(profileData)
+                setProfileType(profileType as 'admin' | 'user')
+              } else {
+                console.log('❌ No profile found for user:', user.id)
+                setProfile(null)
+                setProfileType(null)
+              }
+            } catch (error) {
+              console.error('💥 Error fetching profile:', error)
+              setProfile(null)
+              setProfileType(null)
+            } finally {
+              setLoading(false)
+            }
           } else {
             setLoading(false)
           }

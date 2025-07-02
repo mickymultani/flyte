@@ -288,6 +288,46 @@ io.on('connection', (socket) => {
     })
   })
 
+  // Handle simple chat messages (for SimpleChat component)
+  socket.on('sendMessage', (message: {
+    id: string
+    text: string
+    user: string
+    timestamp: Date
+  }) => {
+    console.log('📨 Received simple message:', message)
+    
+    // Broadcast message to all connected clients
+    io.emit('message', message)
+    
+    console.log('📤 Broadcasted message to all clients')
+  })
+
+  // Handle user joined/left for simple chat
+  socket.on('userJoined', (data: { user: string }) => {
+    console.log('👋 User joined:', data.user)
+    
+    const onlineUsers = Array.from(activeUsers.values()).map(u => u.userName)
+    
+    // Broadcast to all clients
+    io.emit('userJoined', {
+      user: data.user,
+      onlineUsers: onlineUsers
+    })
+  })
+
+  socket.on('userLeft', (data: { user: string }) => {
+    console.log('👋 User left:', data.user)
+    
+    const onlineUsers = Array.from(activeUsers.values()).map(u => u.userName)
+    
+    // Broadcast to all clients
+    io.emit('userLeft', {
+      user: data.user,
+      onlineUsers: onlineUsers
+    })
+  })
+
   // Handle disconnection
   socket.on('disconnect', () => {
     const user = activeUsers.get(socket.id)

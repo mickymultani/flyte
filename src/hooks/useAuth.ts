@@ -55,6 +55,7 @@ export const useAuth = () => {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           const user = session?.user
           setUser(user ?? null)
+          setInitializing(false)
           
           if (user) {
             setLoading(true)
@@ -63,9 +64,15 @@ export const useAuth = () => {
               if (result.data && result.type) {
                 setProfile(result.data)
                 setProfileType(result.type as 'admin' | 'user')
+              } else {
+                console.log('No profile found for user, but authentication successful')
+                setProfile(null)
+                setProfileType(null)
               }
             } catch (error) {
               console.error('Error loading profile:', error)
+              setProfile(null)
+              setProfileType(null)
             } finally {
               setLoading(false)
             }

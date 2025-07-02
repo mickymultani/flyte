@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Send, Paperclip, Smile, MoreVertical, Users, Search, Phone, Video, Wifi, WifiOff, Plus, Settings, LogOut, Hash, Lock, MessageSquare, Bell, User, CheckSquare, UserCheck } from 'lucide-react'
+import { Send, Paperclip, Smile, MoreVertical, Users, Search, Phone, Video, Wifi, WifiOff, Plus, Settings, LogOut, Hash, Lock, MessageSquare, CheckSquare, UserCheck } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { useAuth } from '../../hooks/useAuth'
@@ -17,7 +17,7 @@ import { signOut } from '../../lib/auth'
 type SidebarSection = 'channels' | 'tasks' | 'contacts'
 
 export const ChatInterface: React.FC = () => {
-  const { profile, user } = useAuth()
+  const { profile } = useAuth()
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const [messageText, setMessageText] = useState('')
   const [showUserList, setShowUserList] = useState(false)
@@ -28,15 +28,14 @@ export const ChatInterface: React.FC = () => {
   const messageInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
 
-  const { channels, loading: channelsLoading, error: channelsError, refetch: refetchChannels } = useChannels()
+  const { channels, loading: channelsLoading, refetch: refetchChannels } = useChannels()
   const { connected, connecting, error: socketError } = useSocket()
   const { 
     messages, 
     typingUsers,
     sendMessage, 
     startTyping,
-    stopTyping,
-    connected: messagesConnected
+    stopTyping
   } = useSocketMessages(selectedChannelId)
 
   // Auto-select first channel when channels load
@@ -132,7 +131,11 @@ export const ChatInterface: React.FC = () => {
       case 'tasks':
         return <TasksSidebar searchTerm={searchTerm} />
       case 'contacts':
-        return <ContactsSidebar searchTerm={searchTerm} />
+        return <ContactsSidebar 
+          searchTerm={searchTerm}
+          onChannelSelect={setSelectedChannelId}
+          onChannelCreated={refetchChannels}
+        />
       default:
         return (
           <div className="flex-1 overflow-y-auto">
@@ -396,9 +399,9 @@ export const ChatInterface: React.FC = () => {
                       {/* Connection Status */}
                       <div className="flex items-center space-x-1">
                         {connected ? (
-                          <Wifi className="h-4 w-4 text-green-500" title="Connected" />
+                          <Wifi className="h-4 w-4 text-green-500" />
                         ) : (
-                          <WifiOff className="h-4 w-4 text-red-500" title="Disconnected" />
+                          <WifiOff className="h-4 w-4 text-red-500" />
                         )}
                       </div>
                     </div>
@@ -507,7 +510,7 @@ export const ChatInterface: React.FC = () => {
               {/* User List Sidebar */}
               {showUserList && (
                 <div className="w-64 bg-white border-l border-gray-200">
-                  <UserList channelId={selectedChannelId} />
+                  <UserList channelId={selectedChannelId || ''} />
                 </div>
               )}
             </div>

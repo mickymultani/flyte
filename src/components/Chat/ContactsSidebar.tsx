@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { UserCheck, Phone, Radio, MapPin, Clock, Search, Shield, Wrench, Users, Headphones, Plus } from 'lucide-react'
+import { UserCheck, Phone, Radio, MapPin, Clock, Shield, Wrench, Users, Headphones, Plus } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase, Contact } from '../../lib/supabase'
@@ -7,9 +7,15 @@ import { AddContactModal } from './AddContactModal'
 
 interface ContactsSidebarProps {
   searchTerm: string
+  onChannelSelect?: (channelId: string) => void
+  onChannelCreated?: () => void
 }
 
-export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({ searchTerm }) => {
+export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({ 
+  searchTerm, 
+  onChannelSelect, 
+  onChannelCreated 
+}) => {
   const { profile } = useAuth()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +84,57 @@ export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({ searchTerm }) 
     if (name?.includes('maintenance')) return Wrench
     if (name?.includes('customer')) return Headphones
     return Users
+  }
+
+  const handleStartDirectMessage = async (contact: Contact) => {
+    if (!profile || !onChannelSelect) return
+    
+    try {
+      const userIds = [profile.id, contact.user_id].sort()
+      const channelName = `dm-${userIds.join('-')}`
+      
+      const { data: existingChannel } = await supabase
+        .from('channels')
+        .select('id')
+        .eq('name', channelName)
+        .eq('type', 'private')
+        .eq('enterprise_id', (profile as any).enterprise_id)
+        .single()
+      
+      if (existingChannel) {
+        onChannelSelect(existingChannel.id)
+        return
+      }
+      
+      const { data: channel, error: channelError } = await supabase
+        .from('channels')
+        .insert({
+          enterprise_id: (profile as any).enterprise_id,
+          name: channelName,
+          description: `Direct conversation between ${profile.full_name} and ${contact.name}`,
+          type: 'private',
+          created_by: profile.id
+        })
+        .select()
+        .single()
+      
+      if (channelError) throw channelError
+      
+      const { error: memberError } = await supabase
+        .from('channel_members')
+        .insert([
+          { channel_id: channel.id, user_id: profile.id, role: 'admin' },
+          { channel_id: channel.id, user_id: contact.user_id, role: 'member' }
+        ])
+      
+      if (memberError) throw memberError
+      
+      if (onChannelCreated) onChannelCreated()
+      onChannelSelect(channel.id)
+      
+    } catch (error) {
+      console.error('Error starting direct message:', error)
+    }
   }
 
   return (
@@ -153,6 +210,7 @@ export const ContactsSidebar: React.FC<ContactsSidebarProps> = ({ searchTerm }) 
                   <div
                     key={contact.id}
                     className="p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => handleStartDirectMessage(contact)}
                   >
                     <div className="flex items-center space-x-3">
                       <div className="relative">

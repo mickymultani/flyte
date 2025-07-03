@@ -19,7 +19,10 @@ const supabase = createClient(
 // Configure Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://flyteapp.netlify.app"
+    ],
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -364,7 +367,7 @@ app.get('/health', (req, res) => {
   })
 })
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 8080
 
 server.listen(PORT, () => {
   console.log(`🚀 Socket.IO server running on port ${PORT}`)

@@ -34,7 +34,7 @@ class SocketManager {
   private maxReconnectAttempts = 5
   private reconnectDelay = 1000
 
-  connect(serverUrl: string = 'http://localhost:3001'): Socket {
+  connect(serverUrl: string = import.meta.env.VITE_SOCKET_SERVER_URL || 'http://localhost:3001'): Socket {
     if (this.socket?.connected) {
       return this.socket
     }

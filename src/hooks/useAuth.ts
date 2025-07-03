@@ -13,16 +13,11 @@ export const useAuth = () => {
   useEffect(() => {
     let mounted = true
 
-    // Get initial session with timeout
+    // Get initial session without aggressive timeout
     const getInitialSession = async () => {
       console.log('🔄 Starting getInitialSession...')
       try {
-        const { data: { session }, error } = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Session timeout')), 5000)
-          )
-        ])
+        const { data: { session }, error } = await supabase.auth.getSession()
 
         console.log('📊 Session result:', { hasSession: !!session, hasUser: !!session?.user, error })
 
@@ -47,11 +42,14 @@ export const useAuth = () => {
                 setProfileType(profileType as 'admin' | 'user')
               } else {
                 console.log('❌ No profile found for user:', user.id)
+                console.log('🔄 User authenticated but no profile exists - this indicates a profile loading or creation issue')
+                console.log('💡 For whitelisted domain users, profile should exist from registration')
                 setProfile(null)
                 setProfileType(null)
               }
             } catch (error) {
               console.error('💥 Error fetching profile:', error)
+              console.error('🔍 Profile fetch failed - check database connectivity and RLS policies')
               setProfile(null)
               setProfileType(null)
             } finally {
@@ -107,11 +105,14 @@ export const useAuth = () => {
                 setProfileType(profileType as 'admin' | 'user')
               } else {
                 console.log('❌ No profile found for user:', user.id)
+                console.log('🔄 User authenticated but no profile exists - this indicates a profile loading or creation issue')
+                console.log('💡 For whitelisted domain users, profile should exist from registration')
                 setProfile(null)
                 setProfileType(null)
               }
             } catch (error) {
               console.error('💥 Error fetching profile:', error)
+              console.error('🔍 Profile fetch failed - check database connectivity and RLS policies')
               setProfile(null)
               setProfileType(null)
             } finally {

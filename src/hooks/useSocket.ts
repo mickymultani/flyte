@@ -11,7 +11,15 @@ export const useSocket = () => {
   const initRef = useRef(false)
 
   useEffect(() => {
-    if (!user || !profile || initRef.current) return
+    if (!user || initRef.current) return
+    
+    if (!profile) {
+      console.warn('⚠️ Authenticated user has no profile - this indicates a profile loading or creation issue')
+      console.log('🔄 Skipping socket connection to prevent infinite loading')
+      setConnecting(false)
+      setError('Profile loading failed - unable to establish chat connection')
+      return
+    }
 
     const initializeSocket = async () => {
       try {

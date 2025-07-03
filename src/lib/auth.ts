@@ -109,6 +109,13 @@ export const getProfile = async (userId: string) => {
     
     if (userError) {
       console.log('⚠️ User profile error:', userError.message, userError.code)
+      if (userError.code === 'PGRST116') {
+        console.log('🔍 No rows returned - user profile does not exist')
+      } else if (userError.code === '42501') {
+        console.log('🔒 Permission denied - check RLS policies')
+      } else {
+        console.log('🔍 Other database error - check connectivity and table structure')
+      }
     }
     
     console.log('📡 Starting admin_profiles query...')
@@ -128,6 +135,13 @@ export const getProfile = async (userId: string) => {
     
     if (adminError) {
       console.log('⚠️ Admin profile error:', adminError.message, adminError.code)
+      if (adminError.code === 'PGRST116') {
+        console.log('🔍 No rows returned - admin profile does not exist')
+      } else if (adminError.code === '42501') {
+        console.log('🔒 Permission denied - check RLS policies')
+      } else {
+        console.log('🔍 Other database error - check connectivity and table structure')
+      }
     }
     
     console.log('❌ No profile found in either table')

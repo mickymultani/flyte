@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { UserRegister } from './components/Auth/UserRegister'
@@ -6,7 +6,7 @@ import { UserLogin } from './components/Auth/UserLogin'
 import { ChatInterface } from './components/Chat/ChatInterface'
 
 function AppContent() {
-  const { user, profile, loading, initializing, setUserProfile } = useAuth()
+  const { user, profile, loading, initializing } = useAuth()
 
   useEffect(() => {
     const checkForIncompleteProfile = async () => {
@@ -33,6 +33,10 @@ function AppContent() {
     )
   }
 
+  if (user && !profile && !loading) {
+    console.log('🔄 User authenticated but no profile found - may need profile creation flow')
+    return <ChatInterface />
+  }
 
   if (user) {
     return <ChatInterface />

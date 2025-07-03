@@ -42,7 +42,8 @@ export const useAuth = () => {
                 setProfileType(profileType as 'admin' | 'user')
               } else {
                 console.log('❌ No profile found for user:', user.id)
-                console.log('🔄 User authenticated but no profile exists - this may require profile creation')
+                console.log('🔄 User authenticated but no profile exists - this indicates a profile loading or creation issue')
+                console.log('💡 For whitelisted domain users, profile should exist from registration')
                 setProfile(null)
                 setProfileType(null)
               }
@@ -104,7 +105,8 @@ export const useAuth = () => {
                 setProfileType(profileType as 'admin' | 'user')
               } else {
                 console.log('❌ No profile found for user:', user.id)
-                console.log('🔄 User authenticated but no profile exists - this may require profile creation')
+                console.log('🔄 User authenticated but no profile exists - this indicates a profile loading or creation issue')
+                console.log('💡 For whitelisted domain users, profile should exist from registration')
                 setProfile(null)
                 setProfileType(null)
               }

@@ -11,6 +11,11 @@ export const useChannels = () => {
   useEffect(() => {
     if (user && profile && profileType) {
       fetchChannels()
+    } else if (user && !profile) {
+      console.warn('⚠️ Authenticated user has no profile - this indicates a profile loading or creation issue')
+      console.log('🔄 Setting empty channels to prevent infinite loading')
+      setChannels([])
+      setLoading(false)
     } else {
       setLoading(false)
     }
